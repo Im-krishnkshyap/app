@@ -1,12 +1,275 @@
-<div class="controls">
-    <select id="templateSelector">
-        <option value="https://blogger.googleusercontent.com/img/a/AVvXsEj7b3b4g5h6i7j8k9l0m1n2o3p4q5r6s7t8u9v0w1x2y3z4a5b6c7d8e9f0g1h2i3j4k5l6m7n8o9p0q1r2s3t4u5v6w7x8y9z0">Template 1 (Shayari)</option>
-        <option value="https://example.com/images/holi.jpg">Template 2 (Holi)</option>
-        <option value="https://example.com/images/shivratri.jpg">Template 3 (Maha Shivratri)</option>
-        </select>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poster Maker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .app-container {
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+            max-width: 480px;
+            width: 100%;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            padding-top: 100%; /* Square aspect ratio */
+        }
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        .input-group label {
+            font-weight: 600;
+            color: #4b5563;
+        }
+        .input-group input, .input-group select, .input-group button {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #d1d5db;
+            font-size: 16px;
+            margin-top: 6px;
+        }
+        .input-group button {
+            background-color: #4f46e5;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .input-group button:hover {
+            background-color: #4338ca;
+        }
+        .input-group button:disabled {
+            background-color: #9ca3af;
+            cursor: not-allowed;
+        }
+        .flex-row {
+            display: flex;
+            gap: 12px;
+        }
+        .flex-row button {
+            flex: 1;
+        }
+    </style>
+</head>
+<body>
 
-    <input type="file" id="photoInput" accept="image/*">
-    <input type="text" id="textInput" placeholder="Apna naam ya message likhein">
-    <button id="updateBtn">Poster Banayein</button>
-    <button id="downloadBtn">Download Poster</button>
+<div class="app-container">
+    <h1 class="text-3xl font-bold text-center text-gray-800">Create Poster</h1>
+    <p class="text-center text-gray-600 -mt-2">Create a poster with your photo and name</p>
+    
+    <div class="canvas-container">
+        <canvas id="posterCanvas"></canvas>
+    </div>
+
+    <div class="controls">
+        <div class="input-group">
+            <label for="templateSelector">Choose a Template</label>
+            <select id="templateSelector">
+                <option value="https://storage.googleapis.com/gweb-uniblog-publish-prod/images/gemini-poster-1.max-2500x2500.jpeg">Template 1 (Shayari)</option>
+                <option value="https://storage.googleapis.com/gweb-uniblog-publish-prod/images/gemini-poster-2.max-2500x2500.jpeg">Template 2 (Bhagwan Hanuman)</option>
+                <option value="https://storage.googleapis.com/gweb-uniblog-publish-prod/images/gemini-poster-3.max-2500x2500.jpeg">Template 3 (Holi)</option>
+            </select>
+        </div>
+        
+        <div class="input-group">
+            <label for="photoInput">Upload Your Photo</label>
+            <input type="file" id="photoInput" accept="image/*">
+        </div>
+        
+        <div class="input-group">
+            <label for="textInput">Write Your Name</label>
+            <input type="text" id="textInput" placeholder="Type your name here...">
+        </div>
+        
+        <div class="flex-row">
+            <button id="updateBtn">Create Poster</button>
+            <button id="downloadBtn">Download Poster</button>
+        </div>
+        
+        <div class="input-group">
+            <label for="aiPromptInput">Get Ideas from AI ✨</label>
+            <input type="text" id="aiPromptInput" placeholder="Write something for inspiration...">
+            <button id="aiGenerateBtn">Generate Shayari with AI ✨</button>
+        </div>
+    </div>
 </div>
+
+<script>
+    const canvas = document.getElementById('posterCanvas');
+    const ctx = canvas.getContext('2d');
+    const templateSelector = document.getElementById('templateSelector');
+    const photoInput = document.getElementById('photoInput');
+    const textInput = document.getElementById('textInput');
+    const updateBtn = document.getElementById('updateBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const aiPromptInput = document.getElementById('aiPromptInput');
+    const aiGenerateBtn = document.getElementById('aiGenerateBtn');
+
+    const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=";
+    const apiKey = ""; 
+
+    let backgroundImage = new Image();
+    let userImage = new Image();
+    let userImageLoaded = false;
+    let backgroundLoaded = false;
+    
+    // Naya function jo template ko load karega aur canvas ko update karega.
+    // New function to load the template and update the canvas.
+    function loadTemplate(url) {
+        backgroundLoaded = false; // Flag reset
+        backgroundImage.src = url;
+    }
+
+    // Load the default template on page load
+    backgroundImage.onload = () => {
+        backgroundLoaded = true;
+        updateCanvasSizeAndDraw();
+    };
+    loadTemplate(templateSelector.value);
+
+    // Load the user's photo
+    photoInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                userImage.onload = () => {
+                    userImageLoaded = true;
+                    drawPoster();
+                };
+                userImage.src = event.target.result;
+            };
+            reader.readAsDataURL(e.target.files[0]);
+        }
+    });
+    
+    // Load a new background when the template is changed
+    templateSelector.addEventListener('change', () => {
+        loadTemplate(templateSelector.value);
+    });
+
+    // Main function to draw the poster
+    function drawPoster() {
+        if (!backgroundLoaded) return;
+
+        // Clear and draw the background image on the canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
+        
+        // If the user's photo is loaded, draw it
+        if (userImageLoaded) {
+            // Adjust the photo position here
+            const photoSize = canvas.width * 0.25; 
+            const photoX = canvas.width * 0.1;
+            const photoY = canvas.height - photoSize - (canvas.height * 0.05);
+            
+            // Draw the photo in a circular shape
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(photoX + photoSize / 2, photoY + photoSize / 2, photoSize / 2, 0, Math.PI * 2, false);
+            ctx.closePath();
+            ctx.clip();
+            ctx.drawImage(userImage, photoX, photoY, photoSize, photoSize);
+            ctx.restore();
+        }
+
+        // Draw the name/text
+        const text = textInput.value || "Write Your Name";
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 30px Poppins';
+        ctx.textAlign = 'center';
+        ctx.shadowColor = 'rgba(0,0,0,0.8)';
+        ctx.shadowBlur = 5;
+        ctx.shadowOffsetX = 2;
+        ctx.shadowOffsetY = 2;
+
+        const textY = canvas.height - (canvas.height * 0.1); 
+        ctx.fillText(text, canvas.width / 2, textY);
+    }
+    
+    // Adjust canvas size and draw the poster
+    function updateCanvasSizeAndDraw() {
+        if (backgroundImage.width && backgroundImage.height) {
+            canvas.width = backgroundImage.width;
+            canvas.height = backgroundImage.height;
+            drawPoster();
+        }
+    }
+
+    // Button event listeners
+    updateBtn.addEventListener('click', drawPoster);
+    downloadBtn.addEventListener('click', () => {
+        const link = document.createElement('a');
+        link.download = 'my-poster.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    });
+    
+    // ✨ Gemini API integration to generate shayari
+    aiGenerateBtn.addEventListener('click', async () => {
+        const prompt = aiPromptInput.value || "Write an inspirational shayri in Hindi.";
+        aiGenerateBtn.disabled = true;
+        aiGenerateBtn.innerText = 'AI is thinking...';
+
+        try {
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+            };
+
+            const response = await fetch(API_URL + apiKey, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                throw new Error(`API error: ${response.status}`);
+            }
+
+            const result = await response.json();
+            const generatedText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (generatedText) {
+                textInput.value = generatedText.trim();
+                drawPoster();
+            } else {
+                textInput.value = "AI could not generate the shayari.";
+            }
+
+        } catch (error) {
+            console.error('API Error:', error);
+            textInput.value = "Something went wrong, please try again.";
+        } finally {
+            aiGenerateBtn.disabled = false;
+            aiGenerateBtn.innerText = 'Generate Shayari with AI ✨';
+        }
+    });
+    
+</script>
+
+</body>
+</html>
